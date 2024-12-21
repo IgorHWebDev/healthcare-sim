@@ -15,6 +15,12 @@ const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
 // Configure session middleware
 bot.use(session());
 
+// Add error handling middleware
+bot.catch((err, ctx) => {
+    console.error(`Error while handling update ${ctx.update.update_id}:`, err);
+    ctx.reply('An error occurred. Please try again or contact support if the issue persists.');
+});
+
 // Initialize session data
 bot.use((ctx: MyContext, next) => {
     const defaultSession: SessionData = {
@@ -33,7 +39,8 @@ bot.use((ctx: MyContext, next) => {
 
 // Start command
 bot.command('start', async (ctx) => {
-    const message = `👋 Welcome to MedSim - Emergency Medicine Training Bot!
+    try {
+        const message = `👋 Welcome to MedSim - Emergency Medicine Training Bot!
 
 This bot uses AI and MIMIC-IV clinical database patterns to create realistic emergency department scenarios for practice.
 
@@ -44,13 +51,18 @@ Available commands:
 /help - Show detailed instructions
 
 Type /practice to begin your first case!`;
-    
-    await ctx.reply(message);
+        
+        await ctx.reply(message);
+    } catch (error) {
+        console.error('Error in start command:', error);
+        await ctx.reply('Error starting the bot. Please try again.');
+    }
 });
 
 // Help command
 bot.command('help', async (ctx) => {
-    const helpMessage = `🏥 MedSim Bot Help
+    try {
+        const helpMessage = `🏥 MedSim Bot Help
 
 Commands:
 /practice - Start a new ED case simulation
@@ -74,39 +86,54 @@ The cases are generated using patterns from the MIMIC-IV clinical database while
 
 Need help? Contact @YourSupportHandle`;
 
-    await ctx.reply(helpMessage);
+        await ctx.reply(helpMessage);
+    } catch (error) {
+        console.error('Error in help command:', error);
+        await ctx.reply('Error displaying help message. Please try again.');
+    }
 });
 
 // Level command
 bot.command('level', async (ctx) => {
-    const message = `Select your training level:
+    try {
+        const message = `Select your training level:
     
 1. Student 👨‍🎓
 2. Resident 👨‍⚕️
 3. Attending 👨‍🏫
 
 Reply with the number (1-3) of your level.`;
-    
-    await ctx.reply(message);
+        
+        await ctx.reply(message);
+    } catch (error) {
+        console.error('Error in level command:', error);
+        await ctx.reply('Error setting training level. Please try again.');
+    }
 });
 
 // Handle level selection
 bot.hears(['1', '2', '3'], async (ctx: MyContext) => {
-    const levelMap = {
-        '1': 'student',
-        '2': 'resident',
-        '3': 'attending'
-    } as const;
-    
-    const level = levelMap[ctx.message.text as keyof typeof levelMap] as UserLevel;
-    ctx.session.userLevel = level;
-    
-    await ctx.reply(`Training level set to: ${level}`);
+    try {
+        const levelMap = {
+            '1': 'student',
+            '2': 'resident',
+            '3': 'attending'
+        } as const;
+        
+        const level = levelMap[ctx.message.text as keyof typeof levelMap] as UserLevel;
+        ctx.session.userLevel = level;
+        
+        await ctx.reply(`Training level set to: ${level}`);
+    } catch (error) {
+        console.error('Error handling level selection:', error);
+        await ctx.reply('Error setting training level. Please try again.');
+    }
 });
 
 // List command
 bot.command(['list', 'scenarios'], async (ctx: MyContext) => {
-    const message = `🏥 MedSim generates dynamic emergency department scenarios based on MIMIC-IV patterns.
+    try {
+        const message = `🏥 MedSim generates dynamic emergency department scenarios based on MIMIC-IV patterns.
 
 Each case is uniquely generated based on your training level:
 • Student: Basic cases focusing on common presentations
@@ -118,16 +145,23 @@ Your current level: ${ctx.session.userLevel}
 Use /practice to start a new case!
 Use /level to change your training level.`;
 
-    await ctx.reply(message);
+        await ctx.reply(message);
+    } catch (error) {
+        console.error('Error in list command:', error);
+        await ctx.reply('Error displaying scenario list. Please try again.');
+    }
 });
 
 // Practice command
-bot.command('practice', async (ctx: MyContext) => {
+bot.command('practice', async (ctx) => {
     try {
+        await ctx.reply('Generating a new case... Please wait.');
+        
         // Generate a new case with appropriate complexity
         const complexity = ctx.session.userLevel === 'attending' ? 'advanced' :
                           ctx.session.userLevel === 'resident' ? 'intermediate' : 'basic';
         
+        console.log(`Generating ${complexity} case for user level: ${ctx.session.userLevel}`);
         const medicalCase = await vertexAI.generateMedicalCase(complexity);
         ctx.session.currentCase = medicalCase;
         
@@ -167,14 +201,24 @@ Reply with your assessment...`;
         await ctx.reply(caseMessage);
     } catch (error) {
         console.error('Error in practice command:', error);
-        await ctx.reply('Sorry, there was an error generating the case. Please try again.');
+        await ctx.reply('Sorry, there was an error generating the case. Please try again in a few moments.');
+        
+        // Log detailed error for debugging
+        if (error instanceof Error) {
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+        }
     }
 });
 
 // Stats command
-bot.command('stats', async (ctx: MyContext) => {
-    const stats = ctx.session.performanceStats;
-    const message = `📊 Your Performance Statistics
+bot.command('stats', async (ctx) => {
+    try {
+        const stats = ctx.session.performanceStats;
+        const message = `📊 Your Performance Statistics
 
 Total Cases: ${stats.totalCases}
 Correct Diagnoses: ${stats.correctDiagnoses}
@@ -183,17 +227,21 @@ Average Score: ${stats.averageScore.toFixed(1)}%
 
 Keep practicing to improve your skills!`;
 
-    await ctx.reply(message);
+        await ctx.reply(message);
+    } catch (error) {
+        console.error('Error in stats command:', error);
+        await ctx.reply('Error displaying performance statistics. Please try again.');
+    }
 });
 
 // Handle text messages (user responses)
 bot.on('text', async (ctx: MyContext) => {
-    if (!ctx.session.currentCase) {
-        await ctx.reply('Please start a new case with /practice first.');
-        return;
-    }
-
     try {
+        if (!ctx.session.currentCase) {
+            await ctx.reply('Please start a new case with /practice first.');
+            return;
+        }
+
         const analysis = await vertexAI.analyzeCaseResponse(
             ctx.session.currentCase,
             ctx.message.text,
@@ -231,6 +279,15 @@ bot.on('text', async (ctx: MyContext) => {
     } catch (error) {
         console.error('Error analyzing response:', error);
         await ctx.reply('Sorry, there was an error analyzing your response. Please try again.');
+        
+        // Log detailed error for debugging
+        if (error instanceof Error) {
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+        }
     }
 });
 
