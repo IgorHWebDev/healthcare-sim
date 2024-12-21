@@ -57,4 +57,6 @@ jobs:
           env_vars: |
             NODE_ENV=production
             GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            PROJECT_ID=${{ env.PROJECT_ID }}
             VERTEX_LOCATION=${{ env.REGION }}
+            REGION=${{ env.REGION }}

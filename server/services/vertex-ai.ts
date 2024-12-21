@@ -8,9 +8,15 @@ class VertexAIService {
     private location: string;
 
     private constructor() {
-        this.project = process.env.GOOGLE_CLOUD_PROJECT || '';
-        this.location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+        this.project = process.env.GOOGLE_CLOUD_PROJECT || process.env.PROJECT_ID || '';
+        this.location = process.env.VERTEX_LOCATION || process.env.REGION || 'us-central1';
+        
+        if (!this.project) {
+            throw new Error('Google Cloud project ID not set');
+        }
+        
         this.vertex_ai = new VertexAI({project: this.project, location: this.location});
+        console.log(`Initialized Vertex AI with project: ${this.project}, location: ${this.location}`);
     }
 
     public static getInstance(): VertexAIService {
