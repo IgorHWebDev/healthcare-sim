@@ -28,9 +28,18 @@ jobs:
           workload_identity_provider: projects/915492630690/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: medsim-mentor-bot@promptedvisionsai.iam.gserviceaccount.com
           create_credentials_file: true
+          token_format: access_token
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+
+      - name: Debug Environment
+        run: |
+          echo "Checking environment..."
+          echo "GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
+          echo "Project ID: $PROJECT_ID"
+          gcloud config list
+          gcloud auth list
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -39,10 +48,14 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Installing dependencies..."
+          npm ci || (cat npm-debug.log && exit 1)
 
       - name: Run tests
-        run: npm test
+        run: |
+          echo "Running tests..."
+          npm test
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
           GOOGLE_CLOUD_PROJECT: ${{ env.PROJECT_ID }}
@@ -54,13 +67,17 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
       - name: Build
-        run: npm run build
+        run: |
+          echo "Building application..."
+          npm run build
 
       - name: Deploy to Cloud Run
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: medsim-bot
           region: ${{ env.REGION }}
+          source: .
           env_vars: |
             NODE_ENV=production
             GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
@@ -68,3 +85,7 @@ jobs:
             POSTGRES_PORT=5432
             POSTGRES_DB=postgres
             POSTGRES_USER=postgres
+
+      - name: Show Deploy Output
+        run: |
+          echo "Deploy URL: ${{ steps.deploy.outputs.url }}"
