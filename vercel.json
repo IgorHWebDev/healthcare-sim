@@ -14,6 +14,13 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "GOOGLE_CLOUD_PROJECT": "promptedvisionsai",
+    "WORKLOAD_IDENTITY_PROVIDER": "projects/915492630690/locations/global/workloadIdentityPools/github-pool/providers/github-provider",
+    "SERVICE_ACCOUNT": "medsim-mentor-bot@promptedvisionsai.iam.gserviceaccount.com",
+    "POSTGRES_HOST": "localhost",
+    "POSTGRES_PORT": "5432",
+    "POSTGRES_DB": "postgres",
+    "POSTGRES_USER": "postgres"
   }
 }

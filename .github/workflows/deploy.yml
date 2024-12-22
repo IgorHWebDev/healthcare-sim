@@ -26,7 +26,8 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/915492630690/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-actions@promptedvisionsai.iam.gserviceaccount.com
+          service_account: medsim-mentor-bot@promptedvisionsai.iam.gserviceaccount.com
+          create_credentials_file: true
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -42,6 +43,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          GOOGLE_CLOUD_PROJECT: ${{ env.PROJECT_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
       - name: Build
         run: npm run build
@@ -51,3 +61,10 @@ jobs:
         with:
           service: medsim-bot
           region: ${{ env.REGION }}
+          env_vars: |
+            NODE_ENV=production
+            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            POSTGRES_HOST=localhost
+            POSTGRES_PORT=5432
+            POSTGRES_DB=postgres
+            POSTGRES_USER=postgres
