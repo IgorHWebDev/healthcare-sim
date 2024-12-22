@@ -1,0 +1,37 @@
+{
+  "name": "medsim-telegram-bot",
+  "version": "1.0.0",
+  "description": "A Telegram bot for medical simulation mentoring",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node server/index.ts",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "init-db": "ts-node server/database/init-db.ts",
+    "test-db": "ts-node server/database/test-connection.ts"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "medical",
+    "simulation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.9.2",
+    "@types/express": "^5.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.21.2",
+    "google-auth-library": "^9.15.0",
+    "pg": "^8.11.3",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "@types/pg": "^8.10.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
