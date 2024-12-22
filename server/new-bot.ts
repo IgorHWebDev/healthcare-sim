@@ -1,8 +1,10 @@
 import { Telegraf, Markup, session } from 'telegraf';
 import { Context } from 'telegraf';
-import { sampleCases } from './data/sample-cases';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import MIMICService from './services/mimic-service';
+import { VertexAIService } from './services/vertex-ai';
+import { MedicalCase } from './types';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -12,57 +14,23 @@ if (!token) {
     throw new Error('BOT_TOKEN must be provided!');
 }
 
-console.log('Initializing bot with token:', token.slice(0, 5) + '...');
-
-const bot = new Telegraf<BotContext>(token);
-
-interface VitalSigns {
-    bp: string;
-    hr: string;
-    rr: string;
-    temp: string;
-    spo2: string;
-}
-
-interface LabResults {
-    cbc?: {
-        wbc: string;
-        hgb: string;
-        plt: string;
-    };
-    chem?: {
-        sodium: string;
-        potassium: string;
-        creatinine: string;
-    };
-    cardiac?: {
-        troponin: string;
-        ck_mb: string;
-    };
-    other?: {
-        pregnancy_test?: string;
-    };
-}
-
-interface EDCase {
-    difficulty: string;
-    chief_complaint: string;
-    vital_signs: VitalSigns;
-    lab_results: LabResults;
-    correct_diagnosis: string;
-    triage_level: string;
-}
+// Initialize services
+const mimicService = MIMICService.getInstance();
+const vertexService = VertexAIService.getInstance();
 
 interface SessionData {
-    currentCase?: EDCase;
+    currentCase?: MedicalCase;
     totalCases: number;
     correctDiagnoses: number;
-    selectedDifficulty?: string;
+    selectedDifficulty?: 'basic' | 'intermediate' | 'advanced';
+    awaitingDiagnosis: boolean;
 }
 
 interface BotContext extends Context {
     session: SessionData;
 }
+
+const bot = new Telegraf<BotContext>(token);
 
 // Add session middleware
 bot.use(session());
@@ -79,39 +47,39 @@ bot.telegram.setMyCommands([
 function getInitialSessionData(): SessionData {
     return {
         totalCases: 0,
-        correctDiagnoses: 0
+        correctDiagnoses: 0,
+        awaitingDiagnosis: false
     };
 }
 
-function formatCase(edCase: EDCase): string {
+async function formatCase(medCase: MedicalCase): Promise<string> {
     return `🏥 *Emergency Department Case*
 
+*Patient Demographics:*
+• Age: ${medCase.demographics.age}
+• Gender: ${medCase.demographics.gender}
+
 *Chief Complaint:*
-${edCase.chief_complaint}
+${medCase.chiefComplaint}
 
 *Vital Signs:*
-• BP: ${edCase.vital_signs.bp}
-• HR: ${edCase.vital_signs.hr}
-• RR: ${edCase.vital_signs.rr}
-• Temp: ${edCase.vital_signs.temp}°C
-• SpO2: ${edCase.vital_signs.spo2}%
+• BP: ${medCase.vitals.bloodPressure}
+• HR: ${medCase.vitals.heartRate}
+• RR: ${medCase.vitals.respiratoryRate}
+• Temp: ${medCase.vitals.temperature}°C
+• SpO2: ${medCase.vitals.oxygenSaturation}%
 
-*Laboratory Results:*
-CBC:
-• WBC: ${edCase.lab_results.cbc?.wbc || 'N/A'} K/µL
-• Hgb: ${edCase.lab_results.cbc?.hgb || 'N/A'} g/dL
-• Platelets: ${edCase.lab_results.cbc?.plt || 'N/A'} K/µL
+*History of Present Illness:*
+${medCase.history.presentIllness}
 
-Chemistry:
-• Sodium: ${edCase.lab_results.chem?.sodium || 'N/A'} mEq/L
-• Potassium: ${edCase.lab_results.chem?.potassium || 'N/A'} mEq/L
-• Creatinine: ${edCase.lab_results.chem?.creatinine || 'N/A'} mg/dL
+*Past Medical History:*
+${medCase.history.pastMedical.join(', ')}
 
-${edCase.lab_results.cardiac ? `Cardiac Markers:
-• Troponin: ${edCase.lab_results.cardiac.troponin} ng/mL
-• CK-MB: ${edCase.lab_results.cardiac.ck_mb} U/L` : ''}
+*Current Medications:*
+${medCase.history.medications.join(', ')}
 
-*Triage Level:* ${edCase.triage_level}
+*Physical Examination:*
+${medCase.physicalExam.join('\n')}
 
 What is your diagnosis and management plan?`;
 }
@@ -122,7 +90,7 @@ bot.command('start', async (ctx) => {
 
     const welcomeMessage = `Welcome to MedSim Mentor! 🏥
 
-I'm your medical education assistant, designed to help you practice emergency medicine cases and improve your clinical decision-making skills.
+I'm your medical education assistant, powered by MIMIC-4 database and Vertex AI. Practice with real emergency medicine cases and receive detailed feedback on your clinical decision-making.
 
 *Available Commands:*
 /practice - Start a new case
@@ -156,26 +124,28 @@ bot.hears(['😊 Basic', '🤔 Intermediate', '🧐 Advanced'], async (ctx) => {
         '😊 Basic': 'basic',
         '🤔 Intermediate': 'intermediate',
         '🧐 Advanced': 'advanced'
-    };
+    } as const;
     
     const selectedDifficulty = difficultyMap[ctx.message.text as keyof typeof difficultyMap];
-    const availableCases = sampleCases.filter(c => c.difficulty === selectedDifficulty);
     
-    if (availableCases.length === 0) {
-        await ctx.reply('No cases available for this difficulty level. Please try another.');
-        return;
+    try {
+        // Get case from MIMIC database
+        const medCase = await mimicService.getMIMICCase(selectedDifficulty);
+        ctx.session.currentCase = medCase;
+        ctx.session.selectedDifficulty = selectedDifficulty;
+        ctx.session.awaitingDiagnosis = true;
+        
+        await ctx.reply(await formatCase(medCase), { 
+            parse_mode: 'Markdown',
+            ...Markup.keyboard([
+                ['🔍 Submit Diagnosis'],
+                ['💡 Get Hint', '⬅️ Back']
+            ]).resize()
+        });
+    } catch (error) {
+        console.error('Error getting case:', error);
+        await ctx.reply('Sorry, there was an error generating the case. Please try again.');
     }
-
-    const randomCase = availableCases[Math.floor(Math.random() * availableCases.length)];
-    ctx.session.currentCase = randomCase;
-    
-    await ctx.reply(formatCase(randomCase), { 
-        parse_mode: 'Markdown',
-        ...Markup.keyboard([
-            ['🔍 Submit Diagnosis'],
-            ['⬅️ Back']
-        ]).resize()
-    });
 });
 
 // Progress command
@@ -201,7 +171,7 @@ bot.command('help', async (ctx) => {
 2. Choose difficulty level
 3. Review patient information
 4. Submit your diagnosis
-5. Get instant feedback
+5. Get AI-powered feedback
 
 *Difficulty Levels:*
 😊 Basic: Clear presentations, common conditions
@@ -209,9 +179,10 @@ bot.command('help', async (ctx) => {
 🧐 Advanced: Challenging cases, atypical presentations
 
 *Tips:*
-• Consider all vital signs and lab results
+• Consider all vital signs and exam findings
+• Review past medical history carefully
 • Think about differential diagnoses
-• Include key management steps in your response`;
+• Use the hint feature if needed`;
 
     await ctx.reply(helpText, { parse_mode: 'Markdown' });
 });
@@ -220,6 +191,22 @@ bot.command('help', async (ctx) => {
 bot.hears('🏥 New Case', (ctx) => ctx.reply('/practice'));
 bot.hears('📊 Statistics', (ctx) => ctx.reply('/progress'));
 bot.hears('❓ Help', (ctx) => ctx.reply('/help'));
+
+// Handle hint request
+bot.hears('💡 Get Hint', async (ctx) => {
+    if (!ctx.session.currentCase) {
+        await ctx.reply('Please start a new case first using /practice');
+        return;
+    }
+
+    try {
+        const hints = await vertexService.getHints(ctx.session.currentCase);
+        await ctx.reply(`💡 *Diagnostic Hints:*\n\n${hints.join('\n')}`, { parse_mode: 'Markdown' });
+    } catch (error) {
+        console.error('Error getting hints:', error);
+        await ctx.reply('Sorry, I could not generate hints at this moment. Please try again.');
+    }
+});
 
 // Handle back button
 bot.hears('⬅️ Back', async (ctx) => {
@@ -236,34 +223,63 @@ bot.hears('🔍 Submit Diagnosis', async (ctx) => {
         return;
     }
 
-    await ctx.reply('Please enter your diagnosis. Be specific and include your key management steps.');
+    await ctx.reply('Please enter your diagnosis and key management steps. Be specific and consider the following:\n\n' +
+        '1. Primary diagnosis\n' +
+        '2. Key differential diagnoses\n' +
+        '3. Initial management steps\n' +
+        '4. Any immediate interventions needed');
+    
+    ctx.session.awaitingDiagnosis = true;
 });
 
 // Handle text messages (for diagnosis responses)
 bot.on('text', async (ctx) => {
-    if (!ctx.session.currentCase || ctx.message.text.startsWith('/')) return;
+    if (!ctx.session.currentCase || !ctx.session.awaitingDiagnosis || ctx.message.text.startsWith('/')) return;
 
-    const userResponse = ctx.message.text.toLowerCase();
-    const correctDiagnosis = ctx.session.currentCase.correct_diagnosis.toLowerCase();
+    try {
+        const feedback = await vertexService.analyzeCaseResponse(
+            ctx.message.text,
+            ctx.session.currentCase.expectedDiagnoses.primary,
+            ctx.session.selectedDifficulty || 'basic'
+        );
 
-    if (userResponse.includes(correctDiagnosis)) {
-        ctx.session.correctDiagnoses++;
-        await ctx.reply('🎉 Correct diagnosis! Well done!\n\nWould you like to try another case? Use /practice to continue.');
-    } else {
-        await ctx.reply(`The correct diagnosis was: ${ctx.session.currentCase.correct_diagnosis}\n\nKeep practicing! Use /practice to try another case.`);
+        if (feedback.isCorrect) {
+            ctx.session.correctDiagnoses++;
+        }
+
+        ctx.session.totalCases++;
+        
+        const feedbackMessage = `${feedback.isCorrect ? '🎉 Correct!' : '❌ Not quite correct.'}\n\n` +
+            `*Feedback:*\n${feedback.explanation}\n\n` +
+            `*Expected Diagnosis:* ${ctx.session.currentCase.expectedDiagnoses.primary}\n\n` +
+            `*Key Learning Points:*\n${feedback.learningPoints.join('\n')}\n\n` +
+            'Would you like to try another case? Use /practice to continue.';
+
+        await ctx.reply(feedbackMessage, { parse_mode: 'Markdown' });
+        
+        ctx.session.currentCase = undefined;
+        ctx.session.awaitingDiagnosis = false;
+    } catch (error) {
+        console.error('Error analyzing response:', error);
+        await ctx.reply('Sorry, there was an error analyzing your response. Please try again.');
     }
-
-    ctx.session.totalCases++;
-    ctx.session.currentCase = undefined;
 });
+
+// Initialize bot with webhook in production
+if (process.env.NODE_ENV === 'production') {
+    const VERCEL_URL = process.env.VERCEL_URL || 'https://v0-v0-13122024-kvoyfkdmvcs.vercel.app';
+    const webhookUrl = `https://${VERCEL_URL}/api/webhook`;
+    
+    bot.telegram.setWebhook(webhookUrl)
+        .then(() => {
+            console.log('Webhook set to:', webhookUrl);
+        })
+        .catch((err) => {
+            console.error('Failed to set webhook:', err);
+        });
+}
 
 // Error handling
-bot.catch((err: any, ctx: BotContext) => {
-    console.error(`Error for ${ctx.updateType}:`, err);
-    ctx.reply('An error occurred. Please try again or use /start to reset.');
-});
-
-// Add error logging for commands
 bot.catch((err: any) => {
     console.error('Bot error:', err);
 });

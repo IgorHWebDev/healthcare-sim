@@ -1,32 +1,45 @@
-import { Telegraf } from 'telegraf';
-import { verifyAndInitDatabase } from './database/verify';
-import * as dotenv from 'dotenv';
-import bot from './telegram-bot';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import bot from './new-bot';
 
-dotenv.config();
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+    console.log('Starting MedSim Mentor bot in development mode...');
+    bot.launch()
+        .then(() => {
+            console.log('Bot is running!');
+            console.log('Bot username:', bot.botInfo?.username);
+        })
+        .catch((err) => {
+            console.error('Error starting bot:', err);
+            process.exit(1);
+        });
 
-async function main() {
-    try {
-        console.log('Starting MedSim Telegram Bot...');
-
-        // Verify and initialize database
-        console.log('Verifying database...');
-        await verifyAndInitDatabase();
-        console.log('Database verification complete');
-
-        // Start the bot
-        console.log('Starting bot...');
-        await bot.launch();
-        console.log('Bot started successfully');
-
-        // Enable graceful stop
-        process.once('SIGINT', () => bot.stop('SIGINT'));
-        process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-    } catch (error) {
-        console.error('Error starting server:', error);
-        process.exit(1);
-    }
+    // Enable graceful stop
+    process.once('SIGINT', () => bot.stop('SIGINT'));
+    process.once('SIGTERM', () => bot.stop('SIGTERM'));
 }
 
-main();
+// For Vercel serverless deployment
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    try {
+        if (req.method === 'POST') {
+            // Process webhook update
+            await bot.handleUpdate(req.body);
+            res.status(200).json({ ok: true });
+        } else {
+            // Health check endpoint
+            res.status(200).json({ 
+                status: 'ok',
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV,
+                botInfo: bot.botInfo
+            });
+        }
+    } catch (error) {
+        console.error('Error processing request:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+}
