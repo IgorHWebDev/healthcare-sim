@@ -117,3 +117,38 @@ ipython_config.py
 *.sqlite
 *.sqlite3
 *.db
+
+# Local development
+*.sqlite3
+*.db
+*.log
+logs/
+temp/
+tmp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Secrets and credentials
+**/credentials.json
+**/service-account.json
+**/token.json
+**/secrets.yaml
+**/secrets.yml
+**/secrets.json
+**/*.pem
+**/*.key
+**/*.crt
+
+# Keep these files
+!package.json
+!package-lock.json
+!yarn.lock
+!vercel.json
+!tsconfig.json
