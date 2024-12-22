@@ -2,15 +2,13 @@ name: Deploy MedSim Bot
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: read
-  id-token: write # Required for Workload Identity Federation
+  id-token: write
 
 env:
   PROJECT_ID: promptedvisionsai
@@ -27,8 +25,8 @@ jobs:
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/${{ env.PROJECT_ID }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: medsim-bot@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: projects/915492630690/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions@promptedvisionsai.iam.gserviceaccount.com
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -53,10 +51,3 @@ jobs:
         with:
           service: medsim-bot
           region: ${{ env.REGION }}
-          source: .
-          env_vars: |
-            NODE_ENV=production
-            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
-            PROJECT_ID=${{ env.PROJECT_ID }}
-            VERTEX_LOCATION=${{ env.REGION }}
-            REGION=${{ env.REGION }}
