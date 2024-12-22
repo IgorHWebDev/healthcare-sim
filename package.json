@@ -1,37 +1,29 @@
 {
-  "name": "medsim-telegram-bot",
+  "name": "medsim-mentor-bot",
   "version": "1.0.0",
-  "description": "A Telegram bot for medical simulation mentoring",
-  "main": "dist/index.js",
-  "scripts": {
-    "start": "node dist/index.js",
-    "dev": "ts-node server/index.ts",
-    "build": "tsc",
-    "watch": "tsc -w",
-    "init-db": "ts-node server/database/init-db.ts",
-    "test-db": "ts-node server/database/test-connection.ts"
+  "description": "Medical Simulation Bot powered by MIMIC-4 and Vertex AI",
+  "main": "server/index.ts",
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "keywords": [
-    "telegram",
-    "bot",
-    "medical",
-    "simulation"
-  ],
-  "author": "",
-  "license": "ISC",
+  "scripts": {
+    "start": "ts-node server/index.ts",
+    "dev": "nodemon --exec ts-node server/index.ts",
+    "build": "tsc",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
   "dependencies": {
-    "@google-cloud/vertexai": "^1.9.2",
-    "@types/express": "^5.0.0",
+    "@google-cloud/vertexai": "^0.2.1",
+    "@vercel/node": "^3.0.12",
     "dotenv": "^16.3.1",
-    "express": "^4.21.2",
-    "google-auth-library": "^9.15.0",
     "pg": "^8.11.3",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.15.3",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
-    "@types/node": "^20.17.10",
+    "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "nodemon": "^3.0.2"
   }
 }
