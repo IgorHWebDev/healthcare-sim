@@ -751,13 +751,16 @@ Format your response in a clear, bulleted list. Focus on findings that influence
         const INPUT_COST_PER_1K = 0.00025;
         const OUTPUT_COST_PER_1K = 0.0005;
         
-        const inputCost = (usage.promptTokenCount / 1000) * INPUT_COST_PER_1K;
-        const outputCost = (usage.candidatesTokenCount / 1000) * OUTPUT_COST_PER_1K;
+        const inputTokens = usage.promptTokens || 0;
+        const outputTokens = usage.completionTokens || 0;
+        
+        const inputCost = (inputTokens / 1000) * INPUT_COST_PER_1K;
+        const outputCost = (outputTokens / 1000) * OUTPUT_COST_PER_1K;
         const totalCost = inputCost + outputCost;
         
         return {
             cost: totalCost,
-            details: `Tokens: ${usage.totalTokenCount} (Input: ${usage.promptTokenCount}, Output: ${usage.candidatesTokenCount})
+            details: `Tokens - Input: ${inputTokens}, Output: ${outputTokens}
 Cost: $${totalCost.toFixed(4)} (Input: $${inputCost.toFixed(4)}, Output: $${outputCost.toFixed(4)})`
         };
     }
