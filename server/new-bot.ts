@@ -7,10 +7,10 @@ import { VertexAIService } from './services/vertex-ai';
 import { MedicalCase } from './types';
 
 // Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config();
 
-const token = process.env.BOT_TOKEN;
-if (!token) {
+// Validate BOT_TOKEN
+if (!process.env.BOT_TOKEN) {
     throw new Error('BOT_TOKEN must be provided!');
 }
 
@@ -30,7 +30,17 @@ interface BotContext extends Context {
     session: SessionData;
 }
 
-const bot = new Telegraf<BotContext>(token);
+const bot = new Telegraf<BotContext>(process.env.BOT_TOKEN);
+
+// Log bot creation
+console.log('Bot instance created:', {
+    timestamp: new Date().toISOString(),
+    env: {
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL_ENV: process.env.VERCEL_ENV,
+        VERCEL_URL: process.env.VERCEL_URL
+    }
+});
 
 // Add session middleware
 bot.use(session());
@@ -273,7 +283,12 @@ if (process.env.NODE_ENV === 'production') {
     // Log bot initialization
     console.log('Initializing bot in production mode:', {
         webhookUrl,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        env: {
+            NODE_ENV: process.env.NODE_ENV,
+            VERCEL_ENV: process.env.VERCEL_ENV,
+            VERCEL_URL: process.env.VERCEL_URL
+        }
     });
 
     // Set webhook with additional options
