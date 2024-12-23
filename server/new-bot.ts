@@ -277,7 +277,7 @@ bot.on('text', async (ctx) => {
 
 // Initialize bot with webhook in production
 if (process.env.NODE_ENV === 'production') {
-    const VERCEL_URL = process.env.VERCEL_URL || 'https://v0-v0-13122024-kvoyfkdmvcs.vercel.app';
+    const VERCEL_URL = process.env.VERCEL_URL || 'https://bot16122024-h6nw42h51-igors-projects-c46e9eb7.vercel.app';
     const webhookUrl = `https://${VERCEL_URL}/api/webhook`;
     
     // Log bot initialization
@@ -291,15 +291,21 @@ if (process.env.NODE_ENV === 'production') {
         }
     });
 
+    // Generate a secret token for webhook
+    const secretToken = Math.random().toString(36).substring(2, 15);
+    console.log('Generated webhook secret token:', secretToken);
+
     // Set webhook with additional options
     bot.telegram.setWebhook(webhookUrl, {
         drop_pending_updates: true,
-        allowed_updates: ['message', 'callback_query']
+        allowed_updates: ['message', 'callback_query'],
+        secret_token: secretToken
     })
     .then(() => {
         console.log('Webhook set successfully:', {
             url: webhookUrl,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            secretToken
         });
     })
     .catch((err) => {
