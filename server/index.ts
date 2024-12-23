@@ -79,22 +79,16 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Verify Telegram webhook request
 const verifyTelegramWebhook = (request: VercelRequest): boolean => {
-    if (!request.headers['x-telegram-bot-api-secret-token']) {
-        return false;
-    }
-    
-    // In a real implementation, you would verify the secret token
-    // For now, we'll just check if the request is coming from Telegram's IP range
-    const telegramIPs = ['149.154.160.0/20', '91.108.4.0/22'];
-    const clientIP = request.headers['x-forwarded-for'] || request.socket.remoteAddress;
-    
     console.log('Verifying webhook request:', {
-        clientIP,
         headers: request.headers,
+        body: request.body,
+        method: request.method,
+        url: request.url,
         timestamp: new Date().toISOString()
     });
     
-    return true; // For now, accept all requests while debugging
+    // For debugging, accept all requests
+    return true;
 };
 
 // For Vercel serverless deployment
