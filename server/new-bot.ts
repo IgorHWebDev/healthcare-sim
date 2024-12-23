@@ -30,7 +30,19 @@ interface BotContext extends Context {
     session: SessionData;
 }
 
+// Initialize bot with webhook mode
 const bot = new Telegraf<BotContext>(process.env.BOT_TOKEN);
+
+// Configure webhook mode
+if (process.env.VERCEL_URL) {
+    const webhookUrl = `https://${process.env.VERCEL_URL}/api/webhook`;
+    bot.telegram.setWebhook(webhookUrl)
+        .then(() => console.log('Webhook set to:', webhookUrl))
+        .catch(err => console.error('Failed to set webhook:', err));
+}
+
+// Add session middleware
+bot.use(session());
 
 // Log bot creation
 console.log('Bot instance created:', {
@@ -41,9 +53,6 @@ console.log('Bot instance created:', {
         VERCEL_URL: process.env.VERCEL_URL
     }
 });
-
-// Add session middleware
-bot.use(session());
 
 // Set bot commands
 bot.telegram.setMyCommands([
@@ -274,66 +283,6 @@ bot.on('text', async (ctx) => {
         await ctx.reply('Sorry, there was an error analyzing your response. Please try again.');
     }
 });
-
-// Initialize bot with webhook in production
-if (process.env.NODE_ENV === 'production') {
-    const VERCEL_URL = process.env.VERCEL_URL || 'https://bot16122024-h6nw42h51-igors-projects-c46e9eb7.vercel.app';
-    const webhookUrl = `https://${VERCEL_URL}/api/webhook`;
-    
-    // Log bot initialization
-    console.log('Initializing bot in production mode:', {
-        webhookUrl,
-        timestamp: new Date().toISOString(),
-        env: {
-            NODE_ENV: process.env.NODE_ENV,
-            VERCEL_ENV: process.env.VERCEL_ENV,
-            VERCEL_URL: process.env.VERCEL_URL
-        }
-    });
-
-    // Generate a secret token for webhook
-    const secretToken = Math.random().toString(36).substring(2, 15);
-    console.log('Generated webhook secret token:', secretToken);
-
-    // Set webhook with additional options
-    bot.telegram.setWebhook(webhookUrl, {
-        drop_pending_updates: true,
-        allowed_updates: ['message', 'callback_query'],
-        secret_token: secretToken
-    })
-    .then(() => {
-        console.log('Webhook set successfully:', {
-            url: webhookUrl,
-            timestamp: new Date().toISOString(),
-            secretToken
-        });
-    })
-    .catch((err) => {
-        console.error('Failed to set webhook:', {
-            error: err instanceof Error ? err.message : 'Unknown error',
-            stack: err instanceof Error ? err.stack : undefined,
-            webhookUrl,
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    // Periodically check webhook status
-    setInterval(() => {
-        bot.telegram.getWebhookInfo()
-            .then((info) => {
-                console.log('Webhook status:', {
-                    info,
-                    timestamp: new Date().toISOString()
-                });
-            })
-            .catch((err) => {
-                console.error('Failed to get webhook info:', {
-                    error: err instanceof Error ? err.message : 'Unknown error',
-                    timestamp: new Date().toISOString()
-                });
-            });
-    }, 60000); // Check every minute
-}
 
 // Error handling
 bot.catch((err: any) => {
