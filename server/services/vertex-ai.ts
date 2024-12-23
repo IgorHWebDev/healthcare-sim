@@ -760,8 +760,7 @@ Format your response in a clear, bulleted list. Focus on findings that influence
         
         return {
             cost: totalCost,
-            details: `Tokens - Input: ${inputTokens}, Output: ${outputTokens}
-Cost: $${totalCost.toFixed(4)} (Input: $${inputCost.toFixed(4)}, Output: $${outputCost.toFixed(4)})`
+            details: `Tokens - Input: ${inputTokens}, Output: ${outputTokens}\nCost: $${totalCost.toFixed(4)} (Input: $${inputCost.toFixed(4)}, Output: $${outputCost.toFixed(4)})`
         };
     }
 
@@ -773,4 +772,4 @@ Cost: $${totalCost.toFixed(4)} (Input: $${inputCost.toFixed(4)}, Output: $${outp
     }
 }
 
-export default VertexAIService;
+export { VertexAIService };
