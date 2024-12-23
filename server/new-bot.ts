@@ -270,13 +270,48 @@ if (process.env.NODE_ENV === 'production') {
     const VERCEL_URL = process.env.VERCEL_URL || 'https://v0-v0-13122024-kvoyfkdmvcs.vercel.app';
     const webhookUrl = `https://${VERCEL_URL}/api/webhook`;
     
-    bot.telegram.setWebhook(webhookUrl)
-        .then(() => {
-            console.log('Webhook set to:', webhookUrl);
-        })
-        .catch((err) => {
-            console.error('Failed to set webhook:', err);
+    // Log bot initialization
+    console.log('Initializing bot in production mode:', {
+        webhookUrl,
+        timestamp: new Date().toISOString()
+    });
+
+    // Set webhook with additional options
+    bot.telegram.setWebhook(webhookUrl, {
+        drop_pending_updates: true,
+        allowed_updates: ['message', 'callback_query']
+    })
+    .then(() => {
+        console.log('Webhook set successfully:', {
+            url: webhookUrl,
+            timestamp: new Date().toISOString()
         });
+    })
+    .catch((err) => {
+        console.error('Failed to set webhook:', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+            stack: err instanceof Error ? err.stack : undefined,
+            webhookUrl,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // Periodically check webhook status
+    setInterval(() => {
+        bot.telegram.getWebhookInfo()
+            .then((info) => {
+                console.log('Webhook status:', {
+                    info,
+                    timestamp: new Date().toISOString()
+                });
+            })
+            .catch((err) => {
+                console.error('Failed to get webhook info:', {
+                    error: err instanceof Error ? err.message : 'Unknown error',
+                    timestamp: new Date().toISOString()
+                });
+            });
+    }, 60000); // Check every minute
 }
 
 // Error handling

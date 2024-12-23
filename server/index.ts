@@ -1,6 +1,16 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import bot from './new-bot';
 
+// Configure error logging
+const logError = (error: unknown, context: string) => {
+    console.error(`Error in ${context}:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        context,
+        timestamp: new Date().toISOString()
+    });
+};
+
 // For local development
 if (process.env.NODE_ENV !== 'production') {
     console.log('Starting MedSim Mentor bot in development mode...');
@@ -10,7 +20,7 @@ if (process.env.NODE_ENV !== 'production') {
             console.log('Bot username:', bot.botInfo?.username);
         })
         .catch((err) => {
-            console.error('Error starting bot:', err);
+            logError(err, 'bot.launch()');
             process.exit(1);
         });
 
@@ -21,25 +31,43 @@ if (process.env.NODE_ENV !== 'production') {
 
 // For Vercel serverless deployment
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    console.log('Received request:', {
+        method: req.method,
+        path: req.url,
+        headers: req.headers,
+        timestamp: new Date().toISOString()
+    });
+
     try {
-        if (req.method === 'POST') {
+        if (req.method === 'POST' && req.url?.includes('/api/webhook')) {
+            console.log('Processing webhook update:', {
+                body: req.body,
+                timestamp: new Date().toISOString()
+            });
+
             // Process webhook update
             await bot.handleUpdate(req.body);
             res.status(200).json({ ok: true });
         } else {
             // Health check endpoint
-            res.status(200).json({ 
+            const healthStatus = {
                 status: 'ok',
                 timestamp: new Date().toISOString(),
                 environment: process.env.NODE_ENV,
-                botInfo: bot.botInfo
-            });
+                botInfo: bot.botInfo,
+                nodeVersion: process.version,
+                memoryUsage: process.memoryUsage()
+            };
+
+            console.log('Health check response:', healthStatus);
+            res.status(200).json(healthStatus);
         }
     } catch (error) {
-        console.error('Error processing request:', error);
+        logError(error, 'handler');
         res.status(500).json({ 
             error: 'Internal server error',
-            message: error instanceof Error ? error.message : 'Unknown error'
+            message: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString()
         });
     }
 }
