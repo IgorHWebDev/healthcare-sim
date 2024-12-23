@@ -77,20 +77,6 @@ if (process.env.NODE_ENV !== 'production') {
     }
 }
 
-// Verify Telegram webhook request
-const verifyTelegramWebhook = (request: VercelRequest): boolean => {
-    console.log('Verifying webhook request:', {
-        headers: request.headers,
-        body: request.body,
-        method: request.method,
-        url: request.url,
-        timestamp: new Date().toISOString()
-    });
-    
-    // For debugging, accept all requests
-    return true;
-};
-
 // For Vercel serverless deployment
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('Received request:', {
@@ -108,51 +94,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         // Validate environment variables first
         const env = validateEnv();
-        console.log('Environment validated:', {
-            ...env,
-            POSTGRES_PASSWORD: '***'
-        });
+        console.log('Environment validated');
 
         if (req.method === 'POST' && req.url?.includes('/api/webhook')) {
-            // Verify webhook request
-            if (!verifyTelegramWebhook(req)) {
-                console.error('Invalid webhook request:', {
-                    headers: req.headers,
-                    timestamp: new Date().toISOString()
-                });
-                return res.status(401).json({ ok: false, error: 'Unauthorized' });
-            }
-
-            console.log('Processing webhook update:', {
-                body: req.body,
-                timestamp: new Date().toISOString()
-            });
-
-            // Process webhook update
+            // Process the update
             await bot.handleUpdate(req.body);
             res.status(200).json({ ok: true });
-        } else {
-            // Health check endpoint
-            const healthStatus = {
-                status: 'ok',
-                timestamp: new Date().toISOString(),
-                environment: process.env.NODE_ENV,
-                vercelEnv: process.env.VERCEL_ENV,
-                vercelUrl: process.env.VERCEL_URL,
-                botInfo: bot.botInfo,
-                nodeVersion: process.version,
-                memoryUsage: process.memoryUsage()
-            };
-
-            console.log('Health check response:', healthStatus);
-            res.status(200).json(healthStatus);
+            return;
         }
+
+        res.status(200).json({ ok: true, message: 'MedSim Mentor Bot is running' });
     } catch (error) {
-        logError(error, 'handler');
-        res.status(500).json({ 
-            error: 'Internal server error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString()
-        });
+        logError(error, 'webhook handler');
+        res.status(500).json({ ok: false, error: 'Internal server error' });
     }
 }
